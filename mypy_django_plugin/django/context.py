@@ -241,9 +241,6 @@ class DjangoContext:
                 ) or self.get_field_set_type(api, field, method=method)
                 expected_types[field_name] = field_set_type
 
-                if field.name != field_name and not isinstance(field, ForeignKey):
-                    expected_types.setdefault(field.name, AnyType(TypeOfAny.unannotated))
-
                 if isinstance(field, ForeignKey):
                     field_name = field.name
                     foreign_key_info = helpers.lookup_class_typeinfo(api, field.__class__)
@@ -274,6 +271,12 @@ class DjangoContext:
                     model_set_type = helpers.convert_any_to_type(foreign_key_set_type, Instance(related_model_info, []))
 
                     expected_types[field_name] = model_set_type
+                elif field.name != field_name:
+                    # A field with a custom `get_attname()` is also accepted by its name,
+                    # which `Model.__init__` sets like `instance.<name> = value`
+                    expected_types.setdefault(
+                        field.name, _get_field_set_type_from_model_type_info(model_info, field.name) or field_set_type
+                    )
 
         return expected_types
 

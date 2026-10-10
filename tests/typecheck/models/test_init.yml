@@ -345,12 +345,20 @@
                 class MyUser(models.Model):
                     pass
 
--   case: field_with_custom_attname_accepts_plain_name
+-   case: init_accepts_name_and_custom_attname
     main: |
-        from myapp.models import Article
+        from myapp.models import Article, Author
+
+        # Accepted by its attname, and by its name with the type of `article.body = ...`
         Article(body="hello")
-        Article.objects.create(body="hello")
         Article(body_zlib=b"hello")
+        Article(body=b"hello")  # E: Incompatible type for "body" of "Article" (got "bytes", expected "str")  [misc]
+
+        # A foreign key keeps the related model type for its name
+        Article(author=Author())
+        Article(author_id=1)
+        Article(author=1)  # E: Incompatible type for "author" of "Article" (got "int", expected "Author | Combinable | None")  [misc]
+    monkeypatch: true
     installed_apps:
         - myapp
     files:
@@ -360,10 +368,14 @@
                 from django.db import models
                 from typing_extensions import override
 
-                class CompressedTextField(models.BinaryField):
+                class CompressedTextField(models.BinaryField[str, str]):
                     @override
                     def get_attname(self) -> str:
                         return f"{self.name}_zlib"
 
+                class Author(models.Model):
+                    pass
+
                 class Article(models.Model):
                     body = CompressedTextField()
+                    author = models.ForeignKey(Author, on_delete=models.CASCADE)
