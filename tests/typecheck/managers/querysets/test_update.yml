@@ -125,3 +125,28 @@
                 class Article(models.Model):
                     title = models.CharField(max_length=200)
                     objects = ArticleQuerySet.as_manager()
+
+
+-   case: update_accepts_name_and_custom_attname
+    installed_apps:
+        - myapp
+    main: |
+        from myapp.models import Article
+
+        Article.objects.update(body=b"hello")
+        Article.objects.update(body_zlib=b"hello")
+        Article.objects.update(body_raw=b"hello")  # E: Article has no field named 'body_raw'  [misc]
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from django.db import models
+                from typing_extensions import override
+
+                class CompressedTextField(models.BinaryField):
+                    @override
+                    def get_attname(self) -> str:
+                        return f"{self.name}_zlib"
+
+                class Article(models.Model):
+                    body = CompressedTextField()

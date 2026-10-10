@@ -189,3 +189,33 @@
                 from django.db import models
                 class MyUser(models.Model):
                     pass
+
+-   case: create_accepts_name_and_custom_attname
+    main: |
+        from myapp.models import Article
+
+        Article.objects.create(body="hello")
+        Article.objects.create(body_zlib=b"hello")
+        Article.objects.create(body=b"hello")  # E: Incompatible type for "body" of "Article" (got "bytes", expected "str")  [misc]
+
+        async def main() -> None:
+            await Article.objects.acreate(body="hello")
+            await Article.objects.acreate(body_zlib=b"hello")
+            await Article.objects.acreate(body=b"hello")  # E: Incompatible type for "body" of "Article" (got "bytes", expected "str")  [misc]
+    monkeypatch: true
+    installed_apps:
+        - myapp
+    files:
+        -   path: myapp/__init__.py
+        -   path: myapp/models.py
+            content: |
+                from django.db import models
+                from typing_extensions import override
+
+                class CompressedTextField(models.BinaryField[str, str]):
+                    @override
+                    def get_attname(self) -> str:
+                        return f"{self.name}_zlib"
+
+                class Article(models.Model):
+                    body = CompressedTextField()
